@@ -4,26 +4,31 @@ import os
 from fpdf import FPDF
 from datetime import datetime, timedelta
 
-# File path for user data
+# File paths for user data and pending consents
 USER_DATA_FILE = "users.csv"
+PENDING_CONSENTS_FILE = "pending_consents.csv"
 
-# Function to initialize the CSV file
-def initialize_user_data_file():
+# Function to initialize CSV files
+def initialize_csv_file(file_path, headers):
     try:
-        with open(USER_DATA_FILE, mode='x', newline='') as file:
+        with open(file_path, mode='x', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(["email", "phone_number", "full_name", "age", "sex"])  # Add headers
+            writer.writerow(headers)
     except FileExistsError:
         pass
 
-# Function to save a new user to the CSV file
-def save_user_to_csv(email, phone_number, full_name, age, sex):
+# Initialize CSV files
+initialize_csv_file(USER_DATA_FILE, ["email", "phone_number", "full_name", "age", "sex"])
+initialize_csv_file(PENDING_CONSENTS_FILE, ["initiator", "other_party_email", "details", "validity", "status"])
+
+# Function to save a new record to a CSV file
+def save_to_csv(file_path, data):
     try:
-        with open(USER_DATA_FILE, mode='a', newline='') as file:
+        with open(file_path, mode='a', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow([email, phone_number, full_name, age, sex])
+            writer.writerow(data)
     except Exception as e:
-        st.error(f"Error saving user: {e}")
+        st.error(f"Error saving data: {e}")
 
 # Function to check if a user exists by email and phone
 def user_exists(email, phone_number):
@@ -49,6 +54,16 @@ def user_exists_by_email(email):
         st.error("CSV file not found.")
     return False
 
+# Function to fetch pending consents for a user
+def get_pending_consents(email):
+    try:
+        with open(PENDING_CONSENTS_FILE, mode='r') as file:
+            reader = csv.DictReader(file)
+            return [row for row in reader if row["other_party_email"] == email and row["status"] == "pending"]
+    except FileNotFoundError:
+        st.error("CSV file not found.")
+    return []
+
 # Function to generate the PDF for consent
 def generate_pdf(consent_data):
     pdf = FPDF()
@@ -62,17 +77,14 @@ def generate_pdf(consent_data):
     # Consent details
     pdf.cell(200, 10, txt=f"Date: {consent_data['date']}", ln=True)
     pdf.cell(200, 10, txt=f"Validity: {consent_data['validity']}", ln=True)
-    pdf.cell(200, 10, txt=f"Signed by: {consent_data['signer_name']}", ln=True)
-    pdf.cell(200, 10, txt=f"Other Party: {consent_data['other_party']}", ln=True)
+    pdf.cell(200, 10, txt=f"Signed by: {consent_data['initiator']}", ln=True)
+    pdf.cell(200, 10, txt=f"Other Party: {consent_data['other_party_email']}", ln=True)
     pdf.ln(10)
     
     pdf.cell(200, 10, txt="Consent Agreement:", ln=True)
     pdf.multi_cell(0, 10, consent_data['details'])
     
     return pdf.output(dest="S").encode("latin1")
-
-# Initialize the CSV file
-initialize_user_data_file()
 
 # Streamlit app title
 st.title("Digital Consent App")
@@ -98,7 +110,7 @@ if auth_option == "Register":
             if user_exists(email, phone_number):
                 st.warning("A user with this email and phone number already exists.")
             else:
-                save_user_to_csv(email, phone_number, full_name, age, sex)
+                save_to_csv(USER_DATA_FILE, [email, phone_number, full_name, age, sex])
                 st.success("Registration successful!")
         else:
             st.error("Please fill in all required fields.")
@@ -124,30 +136,26 @@ if st.session_state.user:
     validity_hours = st.selectbox("Validity Period (hours)", [24, 28], key="validity_hours")
     consent_details = st.text_area("Enter the consent details (e.g., purpose):", key="consent_details")
     
-    if st.button("Generate Consent PDF"):
+    if st.button("Send Consent Request"):
         if not other_party_email.strip() or not consent_details.strip():
             st.error("Please fill in all fields.")
         elif not user_exists_by_email(other_party_email):
             st.error(f"The email '{other_party_email}' is not registered. Please ensure both parties have an account.")
         else:
-            consent_data = {
-                "signer_name": st.session_state.user["full_name"],
-                "other_party": other_party_email.strip(),
-                "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "validity": (datetime.now() + timedelta(hours=validity_hours)).strftime("%Y-%m-%d %H:%M:%S"),
-                "details": consent_details.strip(),
-            }
-            
-            pdf_data = generate_pdf(consent_data)
-            
-            st.success("Consent form generated!")
-            st.download_button(
-                label="Download Consent PDF",
-                data=pdf_data,
-                file_name="consent_form.pdf",
-                mime="application/pdf",
-            )
-else:
-    st.warning("You must sign in to access the consent form.")
+            validity = (datetime.now() + timedelta(hours=validity_hours)).strftime("%Y-%m-%d %H:%M:%S")
+            save_to_csv(PENDING_CONSENTS_FILE, [st.session_state.user["email"], other_party_email, consent_details.strip(), validity, "pending"])
+            st.success(f"Consent request sent to {other_party_email}!")
+
+# Approval Section
+if st.session_state.user:
+    pending_consents = get_pending_consents(st.session_state.user["email"])
+    if pending_consents:
+        st.subheader("Pending Consents for Your Approval")
+        for consent in pending_consents:
+            st.text(f"Consent from {consent['initiator']}: {consent['details']}")
+            if st.button(f"Approve Consent from {consent['initiator']}"):
+                consent["status"] = "approved"
+                st.success(f"Consent approved for {consent['initiator']}")
+
 
 
