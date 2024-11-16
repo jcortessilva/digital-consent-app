@@ -2,11 +2,11 @@ import os
 import csv
 import streamlit as st
 
-st.write("Streamlit app is running!")  # Debug message
-
-
 # File path for user data
 USER_DATA_FILE = "users.csv"
+
+# Debug: Confirm app is running
+st.write("Streamlit app is running!")
 
 # Function to initialize the CSV file
 def initialize_user_data_file():
@@ -23,5 +23,3 @@ def initialize_user_data_file():
 
 # Initialize the CSV file
 initialize_user_data_file()
-
-
