@@ -4,6 +4,20 @@ import csv
 import os
 from datetime import datetime
 
+# Debugging: Print the current working directory
+st.write("Current Working Directory:", os.getcwd())
+
+# Debugging: Check if the file exists
+if os.path.exists(USER_DATA_FILE):
+    st.write("File exists:", os.path.abspath(USER_DATA_FILE))
+else:
+    st.write("File does not exist. Initializing...")
+    initialize_user_data_file()
+    if os.path.exists(USER_DATA_FILE):
+        st.write("File created successfully at:", os.path.abspath(USER_DATA_FILE))
+    else:
+        st.error("Failed to create the file.")
+
 # File path for user data
 USER_DATA_FILE = "users.csv"
 
