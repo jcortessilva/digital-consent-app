@@ -50,7 +50,6 @@ def user_exists(email, phone_number):
         st.error("CSV file not found.")
     return None
 
-
 # Initialize the CSV file
 initialize_user_data_file()
 
