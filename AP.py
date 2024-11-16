@@ -133,5 +133,7 @@ if st.session_state.user:
                 file_name="consent_form.pdf",
                 mime="application/pdf",
             )
+else:
+    st.warning("You must sign in to access the consent form.")
 
 
