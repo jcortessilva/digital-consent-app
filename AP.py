@@ -2,6 +2,9 @@ import os
 import csv
 import streamlit as st
 
+st.write("Streamlit app is running!")  # Debug message
+
+
 # File path for user data
 USER_DATA_FILE = "users.csv"
 
