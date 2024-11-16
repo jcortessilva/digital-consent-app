@@ -52,6 +52,15 @@ def generate_pdf(consent_data):
 # Initialize CSV file
 initialize_user_data_file()
 
+# Debugging: Print the absolute path of the CSV file
+st.write("CSV File Path:", os.path.abspath(USER_DATA_FILE))
+
+# Debugging: Check if the file exists
+if os.path.exists(USER_DATA_FILE):
+    st.write("File exists:", USER_DATA_FILE)
+else:
+    st.write("File does not exist.")
+
 # Streamlit app title
 st.title("Digital Consent App")
 
