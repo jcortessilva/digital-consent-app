@@ -1,54 +1,63 @@
 import streamlit as st
 import csv
 import os
+from fpdf import FPDF
+from datetime import datetime, timedelta
 
 # File path for user data
 USER_DATA_FILE = "users.csv"
 
-# Debug: Confirm app is running
-st.write("Hello! Streamlit app is running.")
-
-# Debug: Print the current working directory
-st.write("Current working directory:", os.getcwd())
-
 # Function to initialize the CSV file
 def initialize_user_data_file():
-    st.write("Initializing file at:", os.path.abspath(USER_DATA_FILE))
     try:
         with open(USER_DATA_FILE, mode='x', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(["email", "phone_number", "full_name", "age", "sex"])  # Add headers
-            st.write("File created successfully.")
     except FileExistsError:
-        st.write("File already exists.")
-    except Exception as e:
-        st.error(f"Error initializing file: {e}")
+        pass
 
 # Function to save a new user to the CSV file
 def save_user_to_csv(email, phone_number, full_name, age, sex):
-    st.write("Attempting to save user to file...")
     try:
         with open(USER_DATA_FILE, mode='a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([email, phone_number, full_name, age, sex])
-            st.write("User saved successfully!")
     except Exception as e:
         st.error(f"Error saving user: {e}")
 
 # Function to check if a user exists in the CSV file
 def user_exists(email, phone_number):
-    st.write("Checking if user exists...")
     try:
         with open(USER_DATA_FILE, mode='r') as file:
             reader = csv.DictReader(file)
             for row in reader:
-                st.write(f"Checking row: {row}")  # Debug: Print each row
                 if row["email"] == email and row["phone_number"] == phone_number:
-                    st.write("User found!")  # Debug: Confirm match
                     return row  # Return user data if found
     except FileNotFoundError:
         st.error("CSV file not found.")
     return None
+
+# Function to generate the PDF for consent
+def generate_pdf(consent_data):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    
+    # Header
+    pdf.cell(200, 10, txt="Voluntary Consent Form", ln=True, align='C')
+    pdf.ln(10)
+    
+    # Consent details
+    pdf.cell(200, 10, txt=f"Date: {consent_data['date']}", ln=True)
+    pdf.cell(200, 10, txt=f"Validity: {consent_data['validity']}", ln=True)
+    pdf.cell(200, 10, txt=f"Signed by: {consent_data['signer_name']}", ln=True)
+    pdf.cell(200, 10, txt=f"Other Party: {consent_data['other_party']}", ln=True)
+    pdf.ln(10)
+    
+    pdf.cell(200, 10, txt="Consent Agreement:", ln=True)
+    pdf.multi_cell(0, 10, consent_data['details'])
+    
+    return pdf.output(dest="S").encode("latin1")
 
 # Initialize the CSV file
 initialize_user_data_file()
@@ -69,13 +78,10 @@ if auth_option == "Register":
     sex = st.selectbox("Sex", ["Male", "Female", "Other"])
     
     if st.button("Register"):
-        st.write("Register button clicked...")
         if email and phone_number and full_name:
-            st.write("All fields are filled.")
             if user_exists(email, phone_number):
                 st.warning("A user with this email and phone number already exists.")
             else:
-                st.write("Saving user to CSV...")
                 save_user_to_csv(email, phone_number, full_name, age, sex)
                 st.success("Registration successful!")
         else:
@@ -91,6 +97,35 @@ elif auth_option == "Sign In":
         user = user_exists(email, phone_number)
         if user:
             st.success(f"Welcome back, {user['full_name']}!")
+            
+            # Consent Writing Section
+            st.subheader("Write Your Consent Agreement")
+            other_party = st.text_input("Full Name of the Other Party")
+            validity_hours = st.selectbox("Validity Period (hours)", [24, 28])
+            consent_details = st.text_area("Enter the consent details (e.g., purpose):")
+            
+            if st.button("Generate Consent PDF"):
+                if not other_party.strip() or not consent_details.strip():
+                    st.error("Please fill in all fields.")
+                else:
+                    consent_data = {
+                        "signer_name": user["full_name"],
+                        "other_party": other_party.strip(),
+                        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "validity": (datetime.now() + timedelta(hours=validity_hours)).strftime("%Y-%m-%d %H:%M:%S"),
+                        "details": consent_details.strip(),
+                    }
+                    
+                    pdf_data = generate_pdf(consent_data)
+                    
+                    st.success("Consent form generated!")
+                    st.download_button(
+                        label="Download Consent PDF",
+                        data=pdf_data,
+                        file_name="consent_form.pdf",
+                        mime="application/pdf",
+                    )
         else:
             st.error("Invalid email or phone number. Please register first.")
+
 
