@@ -4,6 +4,8 @@ import csv
 import os
 from datetime import datetime
 
+st.write("Current Working Directory (Streamlit):", os.getcwd())
+
 # Debugging: Print the current working directory
 st.write("Current Working Directory:", os.getcwd())
 
