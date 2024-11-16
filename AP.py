@@ -37,15 +37,19 @@ def save_user_to_csv(email, phone_number, full_name, age, sex):
 
 # Function to check if a user exists in the CSV file
 def user_exists(email, phone_number):
+    st.write("Checking if user exists...")
     try:
         with open(USER_DATA_FILE, mode='r') as file:
             reader = csv.DictReader(file)
             for row in reader:
+                st.write(f"Checking row: {row}")  # Debug: Print each row
                 if row["email"] == email and row["phone_number"] == phone_number:
+                    st.write("User found!")  # Debug: Confirm match
                     return row  # Return user data if found
     except FileNotFoundError:
-        return None
+        st.error("CSV file not found.")
     return None
+
 
 # Initialize the CSV file
 initialize_user_data_file()
