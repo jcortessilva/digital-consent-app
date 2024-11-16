@@ -68,6 +68,10 @@ st.title("Digital Consent App")
 # Sidebar for registration and sign-in options
 auth_option = st.sidebar.radio("Select an option:", ["Register", "Sign In"])
 
+# Session state to persist user data
+if "user" not in st.session_state:
+    st.session_state.user = None
+
 # Registration
 if auth_option == "Register":
     st.header("Register a New Account")
@@ -96,36 +100,38 @@ elif auth_option == "Sign In":
     if st.button("Sign In"):
         user = user_exists(email, phone_number)
         if user:
+            st.session_state.user = user
             st.success(f"Welcome back, {user['full_name']}!")
-            
-            # Consent Writing Section
-            st.subheader("Write Your Consent Agreement")
-            other_party = st.text_input("Full Name of the Other Party")
-            validity_hours = st.selectbox("Validity Period (hours)", [24, 28])
-            consent_details = st.text_area("Enter the consent details (e.g., purpose):")
-            
-            if st.button("Generate Consent PDF"):
-                if not other_party.strip() or not consent_details.strip():
-                    st.error("Please fill in all fields.")
-                else:
-                    consent_data = {
-                        "signer_name": user["full_name"],
-                        "other_party": other_party.strip(),
-                        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "validity": (datetime.now() + timedelta(hours=validity_hours)).strftime("%Y-%m-%d %H:%M:%S"),
-                        "details": consent_details.strip(),
-                    }
-                    
-                    pdf_data = generate_pdf(consent_data)
-                    
-                    st.success("Consent form generated!")
-                    st.download_button(
-                        label="Download Consent PDF",
-                        data=pdf_data,
-                        file_name="consent_form.pdf",
-                        mime="application/pdf",
-                    )
         else:
             st.error("Invalid email or phone number. Please register first.")
+
+# Consent Writing Section
+if st.session_state.user:
+    st.subheader("Write Your Consent Agreement")
+    other_party = st.text_input("Full Name of the Other Party", key="other_party")
+    validity_hours = st.selectbox("Validity Period (hours)", [24, 28], key="validity_hours")
+    consent_details = st.text_area("Enter the consent details (e.g., purpose):", key="consent_details")
+    
+    if st.button("Generate Consent PDF"):
+        if not other_party.strip() or not consent_details.strip():
+            st.error("Please fill in all fields.")
+        else:
+            consent_data = {
+                "signer_name": st.session_state.user["full_name"],
+                "other_party": other_party.strip(),
+                "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "validity": (datetime.now() + timedelta(hours=validity_hours)).strftime("%Y-%m-%d %H:%M:%S"),
+                "details": consent_details.strip(),
+            }
+            
+            pdf_data = generate_pdf(consent_data)
+            
+            st.success("Consent form generated!")
+            st.download_button(
+                label="Download Consent PDF",
+                data=pdf_data,
+                file_name="consent_form.pdf",
+                mime="application/pdf",
+            )
 
 
