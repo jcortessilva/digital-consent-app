@@ -1,4 +1,5 @@
-import streamlit as st
+# Local change
+print("This is your local change.")
 
-# Debug message
-st.write("This is a test message. If you see this, Streamlit is working correctly")
+# Remote change
+print("This is the change from GitHub.")
