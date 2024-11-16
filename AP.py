@@ -80,3 +80,17 @@ if auth_option == "Register":
                 st.success("Registration successful!")
         else:
             st.error("Please fill in all required fields.")
+
+# Sign-In
+elif auth_option == "Sign In":
+    st.header("Sign In to Your Account")
+    email = st.text_input("Email Address", key="login_email")
+    phone_number = st.text_input("Phone Number", key="login_phone")
+    
+    if st.button("Sign In"):
+        user = user_exists(email, phone_number)
+        if user:
+            st.success(f"Welcome back, {user['full_name']}!")
+        else:
+            st.error("Invalid email or phone number. Please register first.")
+
