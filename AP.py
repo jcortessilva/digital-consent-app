@@ -1,36 +1,40 @@
 import streamlit as st
 from fpdf import FPDF
 import csv
+import os
 from datetime import datetime
 
 # File path for user data
 USER_DATA_FILE = "users.csv"
 
-# Ensure CSV file exists with headers
+# Function to initialize the CSV file
 def initialize_user_data_file():
     try:
         with open(USER_DATA_FILE, mode='x', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(["email", "phone_number", "full_name", "age", "sex"])
+            writer.writerow(["email", "phone_number", "full_name", "age", "sex"])  # Add headers
     except FileExistsError:
         pass
 
-# Save a new user to the CSV file
+# Function to save a new user to the CSV file
 def save_user_to_csv(email, phone_number, full_name, age, sex):
-    with open(USER_DATA_FILE, mode='a', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow([email, phone_number, full_name, age, sex])
+    try:
+        with open(USER_DATA_FILE, mode='a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow([email, phone_number, full_name, age, sex])
+    except Exception as e:
+        st.error(f"Error saving user: {e}")
 
-# Check if a user exists in the CSV file
+# Function to check if a user exists in the CSV file
 def user_exists(email, phone_number):
     try:
         with open(USER_DATA_FILE, mode='r') as file:
             reader = csv.DictReader(file)
             for row in reader:
                 if row["email"] == email and row["phone_number"] == phone_number:
-                    return row
+                    return row  # Return user data if found
     except FileNotFoundError:
-        pass
+        return None
     return None
 
 # Function to generate the PDF for consent
@@ -49,17 +53,11 @@ def generate_pdf(consent_data):
     
     return pdf.output(dest="S").encode("latin1")
 
-# Initialize CSV file
+# Initialize CSV file at the start of the app
 initialize_user_data_file()
 
-# Debugging: Print the absolute path of the CSV file
+# Debugging: Display file path
 st.write("CSV File Path:", os.path.abspath(USER_DATA_FILE))
-
-# Debugging: Check if the file exists
-if os.path.exists(USER_DATA_FILE):
-    st.write("File exists:", USER_DATA_FILE)
-else:
-    st.write("File does not exist.")
 
 # Streamlit app title
 st.title("Digital Consent App")
@@ -129,5 +127,3 @@ elif auth_option == "Sign In":
                         )
         else:
             st.error("Invalid email or phone number. Please register first.")
-
-
