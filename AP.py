@@ -25,7 +25,7 @@ def save_user_to_csv(email, phone_number, full_name, age, sex):
     except Exception as e:
         st.error(f"Error saving user: {e}")
 
-# Function to check if a user exists in the CSV file
+# Function to check if a user exists by email and phone
 def user_exists(email, phone_number):
     try:
         with open(USER_DATA_FILE, mode='r') as file:
@@ -36,6 +36,18 @@ def user_exists(email, phone_number):
     except FileNotFoundError:
         st.error("CSV file not found.")
     return None
+
+# Function to check if a user exists by email
+def user_exists_by_email(email):
+    try:
+        with open(USER_DATA_FILE, mode='r') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                if row["email"].strip().lower() == email.strip().lower():
+                    return True  # Return True if user is found
+    except FileNotFoundError:
+        st.error("CSV file not found.")
+    return False
 
 # Function to generate the PDF for consent
 def generate_pdf(consent_data):
@@ -108,17 +120,19 @@ elif auth_option == "Sign In":
 # Consent Writing Section
 if st.session_state.user:
     st.subheader("Write Your Consent Agreement")
-    other_party = st.text_input("Full Name of the Other Party", key="other_party")
+    other_party_email = st.text_input("Email of the Other Party", key="other_party_email")
     validity_hours = st.selectbox("Validity Period (hours)", [24, 28], key="validity_hours")
     consent_details = st.text_area("Enter the consent details (e.g., purpose):", key="consent_details")
     
     if st.button("Generate Consent PDF"):
-        if not other_party.strip() or not consent_details.strip():
+        if not other_party_email.strip() or not consent_details.strip():
             st.error("Please fill in all fields.")
+        elif not user_exists_by_email(other_party_email):
+            st.error(f"The email '{other_party_email}' is not registered. Please ensure both parties have an account.")
         else:
             consent_data = {
                 "signer_name": st.session_state.user["full_name"],
-                "other_party": other_party.strip(),
+                "other_party": other_party_email.strip(),
                 "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "validity": (datetime.now() + timedelta(hours=validity_hours)).strftime("%Y-%m-%d %H:%M:%S"),
                 "details": consent_details.strip(),
