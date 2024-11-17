@@ -101,6 +101,7 @@ def handle_consent_by_id():
 
     if not consent_id:
         st.error("No consent ID found in the query parameters.")
+        st.write("Make sure the URL contains the consent_id parameter.")
         return False
 
     # Debugging: Log the full consent ID
@@ -238,9 +239,5 @@ if "user" in st.session_state:
             email_sent = send_email(other_party_email, "Consent Request", f"Please confirm the consent: {confirmation_link}")
             if email_sent:
                 st.success(f"Consent request sent to {other_party_email}.")
-
-
-
-
 
 
