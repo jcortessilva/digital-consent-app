@@ -14,6 +14,20 @@ SMTP_PORT = os.getenv("SMTP_PORT")
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 
+# Debugging: Print loaded environment variables
+st.write("Debugging Environment Variables:")
+st.write("SMTP_SERVER:", SMTP_SERVER)
+st.write("SMTP_PORT:", SMTP_PORT)
+st.write("EMAIL_ADDRESS:", EMAIL_ADDRESS)
+st.write("EMAIL_PASSWORD:", "********")  # Masked for security
+
+# Convert SMTP_PORT to an integer safely
+try:
+    SMTP_PORT = int(SMTP_PORT)
+except (ValueError, TypeError):
+    st.error("Error: SMTP_PORT is not valid. Check your .env file.")
+    SMTP_PORT = None  # This will prevent email sending until fixed
+
 # File paths for user data and pending consents
 USER_DATA_FILE = "users.csv"
 PENDING_CONSENTS_FILE = "pending_consents.csv"
@@ -42,6 +56,10 @@ def save_to_csv(file_path, data):
 
 # Function to send an email
 def send_email(to_email, subject, body):
+    if not SMTP_PORT:
+        st.error("SMTP_PORT is invalid. Fix your .env file and restart.")
+        return False
+
     try:
         # Create the email message
         msg = MIMEMultipart()
@@ -52,7 +70,7 @@ def send_email(to_email, subject, body):
         msg.attach(MIMEText(body, "plain"))
 
         # Connect to the SMTP server
-        with smtplib.SMTP(SMTP_SERVER, int(SMTP_PORT)) as server:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.ehlo()  # Identify the client to the server
             server.starttls()  # Secure the connection
             server.ehlo()  # Re-identify the client after securing the connection
