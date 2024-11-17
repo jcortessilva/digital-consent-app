@@ -21,7 +21,7 @@ SMTP_SERVER = os.getenv("SMTP_SERVER")
 SMTP_PORT = os.getenv("SMTP_PORT")
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")  # Should always be "apikey" for SendGrid
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
-VERIFIED_SENDER_EMAIL = "consentapptest@gmail.com"  # Replace with your verified email in SendGrid
+VERIFIED_SENDER_EMAIL = "your-verified-email@example.com"  # Replace with your verified email in SendGrid
 
 # File paths for user data and pending consents
 USER_DATA_FILE = "users.csv"
