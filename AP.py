@@ -8,6 +8,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 from dotenv import load_dotenv, find_dotenv
+from fpdf import FPDF
 
 # Load environment variables from email.env
 dotenv_path = find_dotenv("email.env")
@@ -28,7 +29,7 @@ VERIFIED_SENDER_EMAIL = "consentapptest@gmail.com"
 USER_DATA_FILE = "users.csv"
 PENDING_CONSENTS_FILE = "pending_consents.csv"
 
-# Function to initialize CSV files
+# Initialize CSV files
 def initialize_csv_file(file_path, headers):
     try:
         with open(file_path, mode='x', newline='') as file:
@@ -37,11 +38,10 @@ def initialize_csv_file(file_path, headers):
     except FileExistsError:
         pass
 
-# Initialize CSV files
 initialize_csv_file(USER_DATA_FILE, ["email", "phone_number", "full_name", "age", "sex"])
 initialize_csv_file(PENDING_CONSENTS_FILE, ["id", "initiator", "other_party_email", "details", "validity", "status", "confirmation_link"])
 
-# Function to save a new record to a CSV file
+# Save a new record to a CSV file
 def save_to_csv(file_path, data):
     try:
         with open(file_path, mode='a', newline='') as file:
@@ -50,22 +50,20 @@ def save_to_csv(file_path, data):
     except Exception as e:
         st.error(f"Error saving data: {e}")
 
-# Function to send an email
+# Send an email
 def send_email(to_email, subject, body):
-    if not SMTP_PORT:
-        st.error("SMTP_PORT is invalid. Fix your email.env file and restart.")
-        return False
-
     try:
-        # Create the email message
+        st.write(f"Preparing to send email to {to_email}")
+        st.write(f"SMTP_SERVER: {SMTP_SERVER}")
+        st.write(f"SMTP_PORT: {SMTP_PORT}")
+        st.write(f"VERIFIED_SENDER_EMAIL: {VERIFIED_SENDER_EMAIL}")
+
         msg = MIMEMultipart()
         msg["From"] = VERIFIED_SENDER_EMAIL
         msg["To"] = to_email
         msg["Subject"] = subject
-
         msg.attach(MIMEText(body, "plain"))
 
-        # Connect to the SMTP server
         with smtplib.SMTP(SMTP_SERVER, int(SMTP_PORT)) as server:
             server.ehlo()
             server.starttls()
@@ -78,7 +76,7 @@ def send_email(to_email, subject, body):
         st.error(f"Error sending email: {e}")
         return False
 
-# Function to check if a user exists by email
+# Check if a user exists by email
 def user_exists_by_email(email):
     try:
         with open(USER_DATA_FILE, mode='r') as file:
@@ -90,55 +88,41 @@ def user_exists_by_email(email):
         st.error("CSV file not found.")
     return False
 
-# Function to handle consent by ID
-def handle_consent_by_id():
-    query_params = st.query_params
-    consent_id = query_params.get("consent_id", None)
-    if isinstance(consent_id, list):
-        consent_id = consent_id[0]  # Use the first value if it's a list
+# Generate a PDF of the consent
+def generate_pdf(consent_data):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
 
-    if not consent_id:
-        return False  # No consent_id, continue with default interface
+    pdf.cell(200, 10, txt="Consent Agreement", ln=True, align='C')
+    pdf.ln(10)
 
-    # Debugging: Log the full consent ID
-    st.write(f"Consent ID from Link: {consent_id}")
+    pdf.cell(200, 10, txt=f"Consent ID: {consent_data['id']}", ln=True)
+    pdf.cell(200, 10, txt=f"Initiator: {consent_data['initiator']}", ln=True)
+    pdf.cell(200, 10, txt=f"Other Party: {consent_data['other_party_email']}", ln=True)
+    pdf.cell(200, 10, txt=f"Details: {consent_data['details']}", ln=True)
+    pdf.cell(200, 10, txt=f"Validity: {consent_data['validity']}", ln=True)
+    pdf.cell(200, 10, txt=f"Status: {consent_data['status']}", ln=True)
 
-    try:
-        with open(PENDING_CONSENTS_FILE, mode='r') as file:
-            reader = csv.DictReader(file)
-            for row in reader:
-                if row["id"] == consent_id:
-                    if row["status"] != "pending":
-                        st.error("This consent has already been processed.")
-                        return True
-                    
-                    # Display consent details
-                    st.subheader("Consent Details")
-                    st.write(f"Initiator: {row['initiator']}")
-                    st.write(f"Other Party: {row['other_party_email']}")
-                    st.write(f"Details: {row['details']}")
-                    st.write(f"Validity: {row['validity']}")
+    pdf.ln(10)
+    pdf.cell(200, 10, txt="Both parties consented to this agreement.", ln=True)
 
-                    # Add options to confirm or reject
-                    col1, col2 = st.columns(2)
-                    if col1.button("Confirm Consent"):
-                        update_consent_status(consent_id, "confirmed")
-                        st.success("Consent confirmed successfully!")
-                        notify_initiator(row['initiator'], "confirmed")
-                    if col2.button("Reject Consent"):
-                        update_consent_status(consent_id, "rejected")
-                        st.warning("Consent rejected.")
-                        notify_initiator(row['initiator'], "rejected")
-                    return True
+    return pdf.output(dest="S").encode("latin1")
 
-            st.error("Consent not found.")
-    except FileNotFoundError:
-        st.error("Pending consents file not found.")
-    except Exception as e:
-        st.error(f"Error handling consent: {e}")
-    return True
+# Notify initiator about consent status
+def notify_initiator(initiator_email, status):
+    subject = "Consent Request Update"
+    body = f"Your consent request has been {status}."
 
-# Function to update consent status
+    st.write(f"Sending notification to initiator: {initiator_email}")
+    email_sent = send_email(initiator_email, subject, body)
+
+    if email_sent:
+        st.success(f"Notification sent to {initiator_email}.")
+    else:
+        st.error(f"Failed to send notification to {initiator_email}.")
+
+# Update consent status in the file
 def update_consent_status(consent_id, new_status):
     updated_rows = []
     try:
@@ -155,21 +139,67 @@ def update_consent_status(consent_id, new_status):
     except Exception as e:
         st.error(f"Error updating consent status: {e}")
 
-# Function to notify initiator
-def notify_initiator(initiator_email, status):
-    subject = "Consent Request Update"
-    body = f"Your consent request has been {status}."
-    send_email(initiator_email, subject, body)
+# Handle consent by ID
+def handle_consent_by_id():
+    query_params = st.query_params
+    consent_id = query_params.get("consent_id", None)
+    if isinstance(consent_id, list):
+        consent_id = consent_id[0]
 
-# Check for consent ID and handle it
+    if not consent_id:
+        return False
+
+    try:
+        with open(PENDING_CONSENTS_FILE, mode='r') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                if row["id"] == consent_id:
+                    if row["status"] == "confirmed":
+                        st.success("This consent has already been confirmed.")
+                        return True
+                    elif row["status"] == "rejected":
+                        st.error("This consent was rejected.")
+                        return True
+
+                    st.subheader("Consent Details")
+                    st.write(f"Initiator: {row['initiator']}")
+                    st.write(f"Other Party: {row['other_party_email']}")
+                    st.write(f"Details: {row['details']}")
+                    st.write(f"Validity: {row['validity']}")
+
+                    col1, col2 = st.columns(2)
+                    if col1.button("Confirm Consent"):
+                        update_consent_status(consent_id, "confirmed")
+                        st.success("Consent confirmed successfully!")
+
+                        pdf_data = generate_pdf(row)
+                        st.download_button(
+                            label="Download Consent PDF",
+                            data=pdf_data,
+                            file_name=f"consent_{consent_id}.pdf",
+                            mime="application/pdf",
+                        )
+                        notify_initiator(row['initiator'], "confirmed")
+                        return True
+                    if col2.button("Reject Consent"):
+                        update_consent_status(consent_id, "rejected")
+                        st.warning("Consent rejected.")
+                        notify_initiator(row['initiator'], "rejected")
+                        return True
+
+            st.error("Consent not found.")
+    except FileNotFoundError:
+        st.error("Pending consents file not found.")
+    except Exception as e:
+        st.error(f"Error handling consent: {e}")
+    return True
+
+# Main application logic
 if not handle_consent_by_id():
-    # If no consent_id, proceed with the default app interface
     st.title("Digital Consent App")
 
-    # Sidebar for registration/sign-in options
     auth_option = st.sidebar.radio("Select an option:", ["Register", "Sign In"])
 
-    # Registration logic
     if auth_option == "Register":
         st.header("Register a New Account")
         email = st.text_input("Email Address")
@@ -177,7 +207,7 @@ if not handle_consent_by_id():
         full_name = st.text_input("Full Name")
         age = st.number_input("Age", min_value=18, max_value=120)
         sex = st.selectbox("Sex", ["Male", "Female", "Other"])
-        
+
         if st.button("Register"):
             if email and phone_number and full_name:
                 save_to_csv(USER_DATA_FILE, [email, phone_number, full_name, age, sex])
@@ -185,12 +215,11 @@ if not handle_consent_by_id():
             else:
                 st.error("Please fill in all required fields.")
 
-    # Sign-In logic
     elif auth_option == "Sign In":
         st.header("Sign In to Your Account")
         email = st.text_input("Email Address", key="login_email")
         phone_number = st.text_input("Phone Number", key="login_phone")
-        
+
         if st.button("Sign In"):
             with open(USER_DATA_FILE, mode='r') as file:
                 reader = csv.DictReader(file)
@@ -206,7 +235,7 @@ if not handle_consent_by_id():
         other_party_email = st.text_input("Email of the Other Party")
         validity_hours = st.selectbox("Validity Period (hours)", [24, 28])
         consent_details = st.text_area("Enter the consent details (e.g., purpose):")
-        
+
         if st.button("Send Consent Request"):
             if not other_party_email.strip() or not consent_details.strip():
                 st.error("Please fill in all fields.")
