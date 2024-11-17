@@ -40,6 +40,7 @@ def save_to_csv(file_path, data):
     except Exception as e:
         st.error(f"Error saving data: {e}")
 
+# Function to send an email
 def send_email(to_email, subject, body):
     try:
         # Create the email message
@@ -51,7 +52,7 @@ def send_email(to_email, subject, body):
         msg.attach(MIMEText(body, "plain"))
 
         # Connect to the SMTP server
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        with smtplib.SMTP(SMTP_SERVER, int(SMTP_PORT)) as server:
             server.ehlo()  # Identify the client to the server
             server.starttls()  # Secure the connection
             server.ehlo()  # Re-identify the client after securing the connection
@@ -134,6 +135,7 @@ if "user" in st.session_state:
             email_sent = send_email(other_party_email, "Consent Request", f"Please confirm the consent: {confirmation_link}")
             if email_sent:
                 st.success(f"Consent request sent to {other_party_email}.")
+
 
 
 
