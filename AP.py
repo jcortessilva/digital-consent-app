@@ -18,8 +18,9 @@ else:
 # Environment variables
 SMTP_SERVER = os.getenv("SMTP_SERVER")
 SMTP_PORT = os.getenv("SMTP_PORT")
-EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
+EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")  # Should always be "apikey" for SendGrid
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+VERIFIED_SENDER_EMAIL = "consentapptest@gmail.com"  # Replace with your verified email in SendGrid
 
 # Debugging: Print loaded environment variables
 st.write("Debugging Environment Variables:")
@@ -70,7 +71,7 @@ def send_email(to_email, subject, body):
     try:
         # Create the email message
         msg = MIMEMultipart()
-        msg["From"] = EMAIL_ADDRESS
+        msg["From"] = VERIFIED_SENDER_EMAIL  # Use your verified email from SendGrid
         msg["To"] = to_email
         msg["Subject"] = subject
 
@@ -160,8 +161,6 @@ if "user" in st.session_state:
             email_sent = send_email(other_party_email, "Consent Request", f"Please confirm the consent: {confirmation_link}")
             if email_sent:
                 st.success(f"Consent request sent to {other_party_email}.")
-
-
 
 
 
