@@ -102,6 +102,7 @@ def handle_consent_by_id():
     if not consent_id:
         st.error("No consent ID found in the query parameters.")
         st.write("Make sure the URL contains the consent_id parameter.")
+        st.write("Example: http://localhost:8501/?consent_id=<unique_consent_id>")
         return False
 
     # Debugging: Log the full consent ID
