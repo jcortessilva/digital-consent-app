@@ -21,7 +21,7 @@ SMTP_SERVER = os.getenv("SMTP_SERVER")
 SMTP_PORT = os.getenv("SMTP_PORT")
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")  # Should always be "apikey" for SendGrid
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
-VERIFIED_SENDER_EMAIL = "consentapptest@gmail.com"  # Replace with your verified email in SendGrid
+VERIFIED_SENDER_EMAIL = "your-verified-email@example.com"  # Replace with your verified email in SendGrid
 
 # File paths for user data and pending consents
 USER_DATA_FILE = "users.csv"
@@ -95,10 +95,17 @@ def handle_consent_by_id():
     if "consent_id" in query_params:
         consent_id = query_params["consent_id"][0]
 
+        # Debugging: Log consent ID from link
+        st.write("Debugging: Consent Confirmation")
+        st.write(f"Consent ID from Link: {consent_id}")
+
         try:
             with open(PENDING_CONSENTS_FILE, mode='r') as file:
                 reader = csv.DictReader(file)
                 for row in reader:
+                    # Debugging: Log each row being checked
+                    st.write(f"Checking Row: {row}")
+                    
                     if row["id"] == consent_id:
                         if row["status"] != "pending":
                             st.error("This consent has already been processed.")
@@ -214,10 +221,17 @@ if "user" in st.session_state:
             unique_consent_id = str(uuid.uuid4())
             validity = (datetime.now() + timedelta(hours=validity_hours)).strftime("%Y-%m-%d %H:%M:%S")
             confirmation_link = f"http://localhost:8501/?consent_id={unique_consent_id}"
+
+            # Debugging: Log details of the consent being saved
+            st.write("Debugging: Consent Saving")
+            st.write(f"Unique Consent ID: {unique_consent_id}")
+            st.write(f"Confirmation Link: {confirmation_link}")
+
             save_to_csv(PENDING_CONSENTS_FILE, [unique_consent_id, st.session_state["user"]["email"], other_party_email, consent_details, validity, "pending", confirmation_link])
             email_sent = send_email(other_party_email, "Consent Request", f"Please confirm the consent: {confirmation_link}")
             if email_sent:
                 st.success(f"Consent request sent to {other_party_email}.")
+
 
 
 
