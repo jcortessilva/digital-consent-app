@@ -5,10 +5,17 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from email.env
+dotenv_path = find_dotenv("email.env")
+if not dotenv_path:
+    st.error("Error: email.env file not found. Ensure it is in the correct location.")
+else:
+    st.write(f"Loaded environment variables from: {dotenv_path}")
+    load_dotenv(dotenv_path)
+
+# Environment variables
 SMTP_SERVER = os.getenv("SMTP_SERVER")
 SMTP_PORT = os.getenv("SMTP_PORT")
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
@@ -25,7 +32,7 @@ st.write("EMAIL_PASSWORD:", "********")  # Masked for security
 try:
     SMTP_PORT = int(SMTP_PORT)
 except (ValueError, TypeError):
-    st.error("Error: SMTP_PORT is not valid. Check your .env file.")
+    st.error("Error: SMTP_PORT is not valid. Check your email.env file.")
     SMTP_PORT = None  # This will prevent email sending until fixed
 
 # File paths for user data and pending consents
@@ -57,7 +64,7 @@ def save_to_csv(file_path, data):
 # Function to send an email
 def send_email(to_email, subject, body):
     if not SMTP_PORT:
-        st.error("SMTP_PORT is invalid. Fix your .env file and restart.")
+        st.error("SMTP_PORT is invalid. Fix your email.env file and restart.")
         return False
 
     try:
