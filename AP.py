@@ -20,25 +20,50 @@ SMTP_SERVER = os.getenv("SMTP_SERVER")
 SMTP_PORT = os.getenv("SMTP_PORT")
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")  # Should always be "apikey" for SendGrid
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
-VERIFIED_SENDER_EMAIL = "consentapptest@gmail.com"  # Replace with your verified email in SendGrid
-
-# Debugging: Print loaded environment variables
-st.write("Debugging Environment Variables:")
-st.write("SMTP_SERVER:", SMTP_SERVER)
-st.write("SMTP_PORT:", SMTP_PORT)
-st.write("EMAIL_ADDRESS:", EMAIL_ADDRESS)
-st.write("EMAIL_PASSWORD:", "********")  # Masked for security
-
-# Convert SMTP_PORT to an integer safely
-try:
-    SMTP_PORT = int(SMTP_PORT)
-except (ValueError, TypeError):
-    st.error("Error: SMTP_PORT is not valid. Check your email.env file.")
-    SMTP_PORT = None  # This will prevent email sending until fixed
+VERIFIED_SENDER_EMAIL = "your-verified-email@example.com"  # Replace with your verified email in SendGrid
 
 # File paths for user data and pending consents
 USER_DATA_FILE = "users.csv"
 PENDING_CONSENTS_FILE = "pending_consents.csv"
+
+# Function to check query parameters
+def handle_confirmation():
+    query_params = st.experimental_get_query_params()
+    if "email" in query_params and "initiator" in query_params:
+        email = query_params["email"][0]
+        initiator = query_params["initiator"][0]
+
+        # Update the pending consents file
+        try:
+            updated_rows = []
+            found = False
+            with open(PENDING_CONSENTS_FILE, mode='r') as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    if row["other_party_email"] == email and row["initiator"] == initiator and row["status"] == "pending":
+                        row["status"] = "confirmed"
+                        found = True
+                    updated_rows.append(row)
+
+            if found:
+                with open(PENDING_CONSENTS_FILE, mode='w', newline='') as file:
+                    writer = csv.DictWriter(file, fieldnames=reader.fieldnames)
+                    writer.writeheader()
+                    writer.writerows(updated_rows)
+                st.success("Consent confirmed successfully!")
+            else:
+                st.error("Consent not found or already confirmed.")
+
+        except FileNotFoundError:
+            st.error("Pending consents file not found.")
+        except Exception as e:
+            st.error(f"Error processing confirmation: {e}")
+        return True
+    return False
+
+# Check if confirmation is being handled
+if handle_confirmation():
+    st.stop()  # Stop further app execution if confirmation is processed
 
 # Function to initialize CSV files
 def initialize_csv_file(file_path, headers):
@@ -89,18 +114,6 @@ def send_email(to_email, subject, body):
     except Exception as e:
         st.error(f"Error sending email: {e}")
         return False
-
-# Function to check if a user exists by email
-def user_exists_by_email(email):
-    try:
-        with open(USER_DATA_FILE, mode='r') as file:
-            reader = csv.DictReader(file)
-            for row in reader:
-                if row["email"].strip().lower() == email.strip().lower():
-                    return True  # Return True if user is found
-    except FileNotFoundError:
-        st.error("CSV file not found.")
-    return False
 
 # Streamlit app title
 st.title("Digital Consent App")
@@ -156,11 +169,10 @@ if "user" in st.session_state:
             st.error(f"The email '{other_party_email}' is not registered. Please ensure both parties have an account.")
         else:
             validity = (datetime.now() + timedelta(hours=validity_hours)).strftime("%Y-%m-%d %H:%M:%S")
-            confirmation_link = f"http://localhost:8501/confirm?email={other_party_email}&initiator={st.session_state['user']['email']}"
+            confirmation_link = f"http://localhost:8501/?email={other_party_email}&initiator={st.session_state['user']['email']}"
             save_to_csv(PENDING_CONSENTS_FILE, [st.session_state["user"]["email"], other_party_email, consent_details, validity, "pending", confirmation_link])
             email_sent = send_email(other_party_email, "Consent Request", f"Please confirm the consent: {confirmation_link}")
             if email_sent:
                 st.success(f"Consent request sent to {other_party_email}.")
-
 
 
