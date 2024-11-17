@@ -96,8 +96,13 @@ def handle_consent_by_id():
     st.write("Debugging: Raw Query Params")
     st.write(query_params)
 
-    # Retrieve consent_id properly
-    consent_id = query_params.get("consent_id", [None])[0]  # Ensure the full ID is retrieved
+    # Retrieve the consent_id
+    consent_id = st.query_params.get("consent_id", None)
+    if isinstance(consent_id, list):
+        consent_id = consent_id[0]  # Use the first value if it's a list
+
+    # Debugging: Log the parsed consent ID
+    st.write(f"Parsed consent_id: {consent_id}")
 
     if not consent_id:
         st.error("No consent ID found in the query parameters.")
@@ -229,7 +234,7 @@ if "user" in st.session_state:
         else:
             unique_consent_id = str(uuid.uuid4())
             validity = (datetime.now() + timedelta(hours=validity_hours)).strftime("%Y-%m-%d %H:%M:%S")
-            confirmation_link = f"http://localhost:8501/?consent_id={urllib.parse.quote(unique_consent_id)}"
+            confirmation_link = f"http://localhost:8501/?consent_id={urllib.parse.quote_plus(unique_consent_id)}"
 
             # Debugging: Log details of the consent being saved
             st.write("Debugging: Consent Saving")
