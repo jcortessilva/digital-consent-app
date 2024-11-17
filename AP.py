@@ -40,9 +40,9 @@ def save_to_csv(file_path, data):
     except Exception as e:
         st.error(f"Error saving data: {e}")
 
-# Function to send an email
 def send_email(to_email, subject, body):
     try:
+        # Create the email message
         msg = MIMEMultipart()
         msg["From"] = EMAIL_ADDRESS
         msg["To"] = to_email
@@ -50,10 +50,13 @@ def send_email(to_email, subject, body):
 
         msg.attach(MIMEText(body, "plain"))
 
+        # Connect to the SMTP server
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()
-            server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
-            server.send_message(msg)
+            server.ehlo()  # Identify the client to the server
+            server.starttls()  # Secure the connection
+            server.ehlo()  # Re-identify the client after securing the connection
+            server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)  # Log in to the SMTP server
+            server.send_message(msg)  # Send the email
 
         return True
     except Exception as e:
