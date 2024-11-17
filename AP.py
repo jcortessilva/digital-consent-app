@@ -96,51 +96,54 @@ def handle_consent_by_id():
     st.write("Debugging: Raw Query Params")
     st.write(query_params)
 
-    if "consent_id" in query_params:
-        consent_id = query_params["consent_id"][0]
+    # Retrieve consent_id properly
+    consent_id = query_params.get("consent_id", [None])[0]  # Ensure the full ID is retrieved
 
-        # Debugging: Log consent ID from link
-        st.write("Debugging: Consent Confirmation")
-        st.write(f"Consent ID from Link: {consent_id}")
+    if not consent_id:
+        st.error("No consent ID found in the query parameters.")
+        return False
 
-        try:
-            with open(PENDING_CONSENTS_FILE, mode='r') as file:
-                reader = csv.DictReader(file)
-                for row in reader:
-                    # Debugging: Log each row being checked
-                    st.write(f"Checking Row: {row}")
-                    
-                    if row["id"] == consent_id:
-                        if row["status"] != "pending":
-                            st.error("This consent has already been processed.")
-                            return True
-                        
-                        # Display consent details
-                        st.subheader("Consent Details")
-                        st.write(f"Initiator: {row['initiator']}")
-                        st.write(f"Other Party: {row['other_party_email']}")
-                        st.write(f"Details: {row['details']}")
-                        st.write(f"Validity: {row['validity']}")
+    # Debugging: Log the full consent ID
+    st.write("Debugging: Consent Confirmation")
+    st.write(f"Consent ID from Link: {consent_id}")
 
-                        # Add options to confirm or reject
-                        col1, col2 = st.columns(2)
-                        if col1.button("Confirm Consent"):
-                            update_consent_status(consent_id, "confirmed")
-                            st.success("Consent confirmed successfully!")
-                            notify_initiator(row['initiator'], "confirmed")
-                        if col2.button("Reject Consent"):
-                            update_consent_status(consent_id, "rejected")
-                            st.warning("Consent rejected.")
-                            notify_initiator(row['initiator'], "rejected")
+    try:
+        with open(PENDING_CONSENTS_FILE, mode='r') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                # Debugging: Log each row being checked
+                st.write(f"Checking Row: {row}")
+                
+                if row["id"] == consent_id:
+                    if row["status"] != "pending":
+                        st.error("This consent has already been processed.")
                         return True
+                    
+                    # Display consent details
+                    st.subheader("Consent Details")
+                    st.write(f"Initiator: {row['initiator']}")
+                    st.write(f"Other Party: {row['other_party_email']}")
+                    st.write(f"Details: {row['details']}")
+                    st.write(f"Validity: {row['validity']}")
+
+                    # Add options to confirm or reject
+                    col1, col2 = st.columns(2)
+                    if col1.button("Confirm Consent"):
+                        update_consent_status(consent_id, "confirmed")
+                        st.success("Consent confirmed successfully!")
+                        notify_initiator(row['initiator'], "confirmed")
+                    if col2.button("Reject Consent"):
+                        update_consent_status(consent_id, "rejected")
+                        st.warning("Consent rejected.")
+                        notify_initiator(row['initiator'], "rejected")
+                    return True
 
             st.error("Consent not found.")
-        except FileNotFoundError:
-            st.error("Pending consents file not found.")
-        except Exception as e:
-            st.error(f"Error handling consent: {e}")
-        return True
-    return False
+    except FileNotFoundError:
+        st.error("Pending consents file not found.")
+    except Exception as e:
+        st.error(f"Error handling consent: {e}")
+    return True
 
 # Function to update consent status
 def update_consent_status(consent_id, new_status):
@@ -235,6 +238,7 @@ if "user" in st.session_state:
             email_sent = send_email(other_party_email, "Consent Request", f"Please confirm the consent: {confirmation_link}")
             if email_sent:
                 st.success(f"Consent request sent to {other_party_email}.")
+
 
 
 
