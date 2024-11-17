@@ -2,6 +2,7 @@ import streamlit as st
 import csv
 import os
 import smtplib
+import uuid
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
@@ -20,50 +21,11 @@ SMTP_SERVER = os.getenv("SMTP_SERVER")
 SMTP_PORT = os.getenv("SMTP_PORT")
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")  # Should always be "apikey" for SendGrid
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
-VERIFIED_SENDER_EMAIL = "consentapptest@gmail.com"  # Replace with your verified email in SendGrid
+VERIFIED_SENDER_EMAIL = "your-verified-email@example.com"  # Replace with your verified email in SendGrid
 
 # File paths for user data and pending consents
 USER_DATA_FILE = "users.csv"
 PENDING_CONSENTS_FILE = "pending_consents.csv"
-
-# Function to check query parameters
-def handle_confirmation():
-    query_params = st.query_params  # Updated to use st.query_params
-    if "email" in query_params and "initiator" in query_params:
-        email = query_params["email"][0]
-        initiator = query_params["initiator"][0]
-
-        # Update the pending consents file
-        try:
-            updated_rows = []
-            found = False
-            with open(PENDING_CONSENTS_FILE, mode='r') as file:
-                reader = csv.DictReader(file)
-                for row in reader:
-                    if row["other_party_email"] == email and row["initiator"] == initiator and row["status"] == "pending":
-                        row["status"] = "confirmed"
-                        found = True
-                    updated_rows.append(row)
-
-            if found:
-                with open(PENDING_CONSENTS_FILE, mode='w', newline='') as file:
-                    writer = csv.DictWriter(file, fieldnames=reader.fieldnames)
-                    writer.writeheader()
-                    writer.writerows(updated_rows)
-                st.success("Consent confirmed successfully!")
-            else:
-                st.error("Consent not found or already confirmed.")
-
-        except FileNotFoundError:
-            st.error("Pending consents file not found.")
-        except Exception as e:
-            st.error(f"Error processing confirmation: {e}")
-        return True
-    return False
-
-# Check if confirmation is being handled
-if handle_confirmation():
-    st.stop()  # Stop further app execution if confirmation is processed
 
 # Function to initialize CSV files
 def initialize_csv_file(file_path, headers):
@@ -76,7 +38,7 @@ def initialize_csv_file(file_path, headers):
 
 # Initialize CSV files
 initialize_csv_file(USER_DATA_FILE, ["email", "phone_number", "full_name", "age", "sex"])
-initialize_csv_file(PENDING_CONSENTS_FILE, ["initiator", "other_party_email", "details", "validity", "status", "confirmation_link"])
+initialize_csv_file(PENDING_CONSENTS_FILE, ["id", "initiator", "other_party_email", "details", "validity", "status", "confirmation_link"])
 
 # Function to save a new record to a CSV file
 def save_to_csv(file_path, data):
@@ -103,7 +65,7 @@ def send_email(to_email, subject, body):
         msg.attach(MIMEText(body, "plain"))
 
         # Connect to the SMTP server
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        with smtplib.SMTP(SMTP_SERVER, int(SMTP_PORT)) as server:
             server.ehlo()  # Identify the client to the server
             server.starttls()  # Secure the connection
             server.ehlo()  # Re-identify the client after securing the connection
@@ -126,6 +88,75 @@ def user_exists_by_email(email):
     except FileNotFoundError:
         st.error("CSV file not found.")
     return False
+
+# Function to handle consent by ID
+def handle_consent_by_id():
+    query_params = st.query_params
+    if "consent_id" in query_params:
+        consent_id = query_params["consent_id"][0]
+
+        try:
+            with open(PENDING_CONSENTS_FILE, mode='r') as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    if row["id"] == consent_id:
+                        if row["status"] != "pending":
+                            st.error("This consent has already been processed.")
+                            return True
+                        
+                        # Display consent details
+                        st.subheader("Consent Details")
+                        st.write(f"Initiator: {row['initiator']}")
+                        st.write(f"Other Party: {row['other_party_email']}")
+                        st.write(f"Details: {row['details']}")
+                        st.write(f"Validity: {row['validity']}")
+
+                        # Add options to confirm or reject
+                        col1, col2 = st.columns(2)
+                        if col1.button("Confirm Consent"):
+                            update_consent_status(consent_id, "confirmed")
+                            st.success("Consent confirmed successfully!")
+                            notify_initiator(row['initiator'], "confirmed")
+                        if col2.button("Reject Consent"):
+                            update_consent_status(consent_id, "rejected")
+                            st.warning("Consent rejected.")
+                            notify_initiator(row['initiator'], "rejected")
+                        return True
+
+            st.error("Consent not found.")
+        except FileNotFoundError:
+            st.error("Pending consents file not found.")
+        except Exception as e:
+            st.error(f"Error handling consent: {e}")
+        return True
+    return False
+
+# Function to update consent status
+def update_consent_status(consent_id, new_status):
+    updated_rows = []
+    try:
+        with open(PENDING_CONSENTS_FILE, mode='r') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                if row["id"] == consent_id:
+                    row["status"] = new_status
+                updated_rows.append(row)
+        with open(PENDING_CONSENTS_FILE, mode='w', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=reader.fieldnames)
+            writer.writeheader()
+            writer.writerows(updated_rows)
+    except Exception as e:
+        st.error(f"Error updating consent status: {e}")
+
+# Function to notify initiator
+def notify_initiator(initiator_email, status):
+    subject = "Consent Request Update"
+    body = f"Your consent request has been {status}."
+    send_email(initiator_email, subject, body)
+
+# Check for consent ID and handle it
+if handle_consent_by_id():
+    st.stop()
 
 # Streamlit app title
 st.title("Digital Consent App")
@@ -180,12 +211,12 @@ if "user" in st.session_state:
         elif not user_exists_by_email(other_party_email):
             st.error(f"The email '{other_party_email}' is not registered. Please ensure both parties have an account.")
         else:
+            unique_consent_id = str(uuid.uuid4())
             validity = (datetime.now() + timedelta(hours=validity_hours)).strftime("%Y-%m-%d %H:%M:%S")
-            confirmation_link = f"http://localhost:8501/?email={other_party_email}&initiator={st.session_state['user']['email']}"
-            save_to_csv(PENDING_CONSENTS_FILE, [st.session_state["user"]["email"], other_party_email, consent_details, validity, "pending", confirmation_link])
+            confirmation_link = f"http://localhost:8501/?consent_id={unique_consent_id}"
+            save_to_csv(PENDING_CONSENTS_FILE, [unique_consent_id, st.session_state["user"]["email"], other_party_email, consent_details, validity, "pending", confirmation_link])
             email_sent = send_email(other_party_email, "Consent Request", f"Please confirm the consent: {confirmation_link}")
             if email_sent:
                 st.success(f"Consent request sent to {other_party_email}.")
-
 
 
