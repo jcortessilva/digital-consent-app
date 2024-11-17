@@ -28,7 +28,7 @@ PENDING_CONSENTS_FILE = "pending_consents.csv"
 
 # Function to check query parameters
 def handle_confirmation():
-    query_params = st.experimental_get_query_params()
+    query_params = st.query_params  # Updated to use st.query_params
     if "email" in query_params and "initiator" in query_params:
         email = query_params["email"][0]
         initiator = query_params["initiator"][0]
@@ -115,6 +115,18 @@ def send_email(to_email, subject, body):
         st.error(f"Error sending email: {e}")
         return False
 
+# Function to check if a user exists by email
+def user_exists_by_email(email):
+    try:
+        with open(USER_DATA_FILE, mode='r') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                if row["email"].strip().lower() == email.strip().lower():
+                    return True  # Return True if user is found
+    except FileNotFoundError:
+        st.error("CSV file not found.")
+    return False
+
 # Streamlit app title
 st.title("Digital Consent App")
 
@@ -174,5 +186,6 @@ if "user" in st.session_state:
             email_sent = send_email(other_party_email, "Consent Request", f"Please confirm the consent: {confirmation_link}")
             if email_sent:
                 st.success(f"Consent request sent to {other_party_email}.")
+
 
 
